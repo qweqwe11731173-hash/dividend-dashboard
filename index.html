@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배당금 통합 관리 & 분석 대시보드</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-chart-line text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white leading-tight">배당 포트폴리오 대시보드</h1>
+                    <p class="text-xs text-slate-400">월별 배당금 & 투자원금 수익률 추이 분석</p>
+                </div>
+            </div>
+
+            <!-- Tab Buttons -->
+            <nav class="hidden md:flex space-x-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-white bg-blue-600 shadow">
+                    <i class="fa-solid fa-gauge-high mr-2"></i>대시보드
+                </button>
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-chart-pie mr-2"></i>심층 차트 분석
+                </button>
+                <button onclick="switchTab('management')" id="tab-management" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-table-list mr-2"></i>데이터 내역 및 입력
+                </button>
+            </nav>
+
+            <!-- Export / Backup -->
+            <div class="flex items-center space-x-2">
+                <button id="admin-auth-btn" onclick="toggleAdminAuth()" title="관리자 로그인" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 rounded-lg text-xs font-semibold border border-slate-700 transition">
+                    <i class="fa-solid fa-lock mr-1" id="admin-auth-icon"></i><span id="admin-auth-text">관리자 로그인</span>
+                </button>
+                <button onclick="exportData()" title="데이터 내보내기" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700 transition">
+                    <i class="fa-solid fa-download mr-1"></i>내보내기
+                </button>
+                <button onclick="resetToDefaultData()" title="초기 데이터 복원" class="px-3 py-2 bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-300 rounded-lg text-xs font-semibold border border-slate-700 transition">
+                    <i class="fa-solid fa-rotate-left mr-1"></i>초기화
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <div class="flex md:hidden border-t border-slate-800 bg-slate-900 justify-around py-2 px-2 text-xs">
+            <button onclick="switchTab('dashboard')" id="mob-tab-dashboard" class="flex flex-col items-center py-1 text-blue-400 font-semibold">
+                <i class="fa-solid fa-gauge-high text-base mb-0.5"></i>대시보드
+            </button>
+            <button onclick="switchTab('analytics')" id="mob-tab-analytics" class="flex flex-col items-center py-1 text-slate-400">
+                <i class="fa-solid fa-chart-pie text-base mb-0.5"></i>차트 분석
+            </button>
+            <button onclick="switchTab('management')" id="mob-tab-management" class="flex flex-col items-center py-1 text-slate-400">
+                <i class="fa-solid fa-table-list text-base mb-0.5"></i>내역 관리
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+        <!-- Global Year Selector Control Header (Shared across all views) -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 mb-6 shadow-lg gap-3">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-filter text-blue-500"></i>
+                <span class="text-sm font-semibold text-slate-200">조회 연도 선택:</span>
+                <select id="year-filter-selector" onchange="onYearFilterChange()" class="bg-slate-800 text-sm font-semibold border border-slate-700 rounded-lg px-3 py-1.5 text-blue-400 focus:outline-none focus:border-blue-500">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <p class="text-xs text-slate-400 flex items-center">
+                <i class="fa-solid fa-circle-info mr-1.5 text-slate-500"></i>
+                선택한 연도 기준으로 모든 탭의 지표, 차트 및 데이터 내역이 자동 동기화됩니다.
+            </p>
+        </div>
+
+        <!-- ================= SECTION 1: DASHBOARD ================= -->
+        <div id="view-dashboard" class="space-y-6">
+
+            <!-- Summary KPI Cards Grid (6 Cards) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <!-- 1. Total Cumulative Investment -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p class="text-xs font-medium text-slate-400">연 누적 투자 원금</p>
+                    <h3 id="kpi-total-principal" class="text-xl font-bold text-white mt-1">0 원</h3>
+                    <p class="text-[11px] text-slate-500 mt-2"><i class="fa-solid fa-calculator mr-1"></i>기한 말 보유 원금 합계</p>
+                </div>
+
+                <!-- 2. Total Dividend Received -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p class="text-xs font-medium text-slate-400">총 수령 배당금</p>
+                    <h3 id="kpi-total-dividend" class="text-xl font-bold text-emerald-400 mt-1">0 원</h3>
+                    <p id="kpi-dividend-count" class="text-[11px] text-emerald-500/80 mt-2">총 0건의 입금 내역</p>
+                </div>
+
+                <!-- 3. Monthly Average Dividend -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p class="text-xs font-medium text-slate-400">월 평균 배당금</p>
+                    <h3 id="kpi-avg-monthly-dividend" class="text-xl font-bold text-sky-400 mt-1">0 원</h3>
+                    <p id="kpi-avg-monthly-desc" class="text-[11px] text-sky-400/80 mt-2">조회 기간 월평균</p>
+                </div>
+
+                <!-- 4. Latest Month Dividend -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p id="kpi-latest-month-title" class="text-xs font-medium text-slate-400">최근 월 배당금</p>
+                    <h3 id="kpi-latest-month-dividend" class="text-xl font-bold text-purple-400 mt-1">0 원</h3>
+                    <p id="kpi-latest-month-yield" class="text-[11px] text-purple-400/80 mt-2">당월 수익률: 0.00%</p>
+                </div>
+
+                <!-- 5. Monthly Average Yield (%) -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p class="text-xs font-medium text-slate-400">월 평균 배당 수익률</p>
+                    <h3 id="kpi-avg-monthly-yield" class="text-xl font-bold text-indigo-400 mt-1">0.00 %</h3>
+                    <p class="text-[11px] text-indigo-400/80 mt-2">연 수익률 ÷ 12</p>
+                </div>
+
+                <!-- 6. Annual Average Yield (%) -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+                    <p class="text-xs font-medium text-slate-400">연 평균 배당 수익률</p>
+                    <h3 id="kpi-annual-yield" class="text-xl font-bold text-amber-400 mt-1">0.00 %</h3>
+                    <p class="text-[11px] text-amber-400/80 mt-2">최근 12개월 배당 / 원금</p>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Charts Row 1 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Monthly Dividend Trend Chart (with Mode Toggle Button) -->
+                <div class="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center">
+                                <i class="fa-solid fa-chart-column text-blue-500 mr-2"></i>월별 전체 배당금 수령 추이
+                            </h2>
+                            <p class="text-xs text-slate-400">월별 배당금 총액 및 종목별 상세 스택 분석</p>
+                        </div>
+                        <div class="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+                            <button onclick="setMonthlyChartMode('total')" id="btn-chart-mode-total" class="px-2.5 py-1 text-xs font-semibold rounded-md transition text-white bg-blue-600 shadow">
+                                전체 합계
+                            </button>
+                            <button onclick="setMonthlyChartMode('stacked')" id="btn-chart-mode-stacked" class="px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-400 hover:text-white">
+                                종목별 누적막대
+                            </button>
+                        </div>
+                    </div>
+                    <div class="h-72 w-full">
+                        <canvas id="chartMonthlyDividend"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Return Rate (%) Trend -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center">
+                                <i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-2"></i>월별 / 연환산 수익률 추이
+                            </h2>
+                            <p class="text-xs text-slate-400">롤링 12개월 배당 기반 연 환산 수익률 (%)</p>
+                        </div>
+                    </div>
+                    <div class="h-72 w-full">
+                        <canvas id="chartYieldTrend"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Charts Row 2 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Stock Combo Chart (Held Shares vs Dividend Amount) -->
+                <div class="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center">
+                                <i class="fa-solid fa-layer-group text-purple-400 mr-2"></i>종목별 누적 보유주식수 & 배당금 콤보 차트
+                            </h2>
+                            <p class="text-xs text-slate-400">선택한 종목의 수량 변화와 수령 배당금 비교</p>
+                        </div>
+                        <div>
+                            <select id="stockSelectorCombo" onchange="renderComboChart()" class="bg-slate-800 text-xs border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="h-72 w-full">
+                        <canvas id="chartStockCombo"></canvas>
+                    </div>
+                </div>
+
+                <!-- Investment Principal Summary per Stock -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col">
+                    <div class="mb-4">
+                        <h2 class="text-base font-bold text-white flex items-center">
+                            <i class="fa-solid fa-pie-chart text-amber-400 mr-2"></i>종목별 연 누적 원금 비중
+                        </h2>
+                        <p class="text-xs text-slate-400">선택 기간 말 기준 종목별 투자 원금 비율</p>
+                    </div>
+                    <div class="h-56 w-full relative flex-grow flex items-center justify-center">
+                        <canvas id="chartStockDistribution"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= SECTION 2: ANALYTICS & TABLES ================= -->
+        <div id="view-analytics" class="hidden space-y-6">
+            
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                    <i class="fa-solid fa-table text-indigo-400 mr-2"></i>월별 & 종목별 상세 투자 요약
+                </h2>
+                <p class="text-xs text-slate-400 mb-4">각 월별 총 투자 원금, 월 배당 총액, 당월 수익률 및 롤링 12개월 연 환산 수익률 정리 표 (컬럼 클릭 시 정렬 가능)</p>
+                
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-800/80 text-slate-300 uppercase font-semibold border-b border-slate-700">
+                            <tr>
+                                <th class="py-3 px-4 cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('month')">
+                                    월 (YYYY-MM) <span id="sort-icon-m-month" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('totalPrincipal')">
+                                    월 총 투자 원금 <span id="sort-icon-m-totalPrincipal" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('totalDividend')">
+                                    월 총 배당금 <span id="sort-icon-m-totalDividend" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('monthlyYield')">
+                                    월 배당 수익률 <span id="sort-icon-m-monthlyYield" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('annualizedYield')">
+                                    연 환산 수익률(롤링 12m) <span id="sort-icon-m-annualizedYield" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-center cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsMonthlyTable('stockCount')">
+                                    받은 종목 수 <span id="sort-icon-m-stockCount" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthly-summary-table" class="divide-y divide-slate-800/60 font-medium">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Principal breakdown per stock -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                    <i class="fa-solid fa-cubes text-cyan-400 mr-2"></i>종목별 현황 요약 (최신월 기준)
+                </h2>
+                <p class="text-xs text-slate-400 mb-4">현재 보유 중인 종목별 최종 수량, 원금 및 누적 배당금 수령 내역 (컬럼 클릭 시 정렬 가능)</p>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-800/80 text-slate-300 uppercase font-semibold border-b border-slate-700">
+                            <tr>
+                                <th class="py-3 px-4 cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('stock')">
+                                    종목명 <span id="sort-icon-s-stock" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('heldShares')">
+                                    최종 누적 보유 주식수 <span id="sort-icon-s-heldShares" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('principal')">
+                                    종목별 연 투자원금 <span id="sort-icon-s-principal" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('weight')">
+                                    원금 비중 <span id="sort-icon-s-weight" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('totalDividend')">
+                                    총 누적 배당금 <span id="sort-icon-s-totalDividend" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                                <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-700/50 transition select-none" onclick="sortAnalyticsStockTable('recoveryRate')">
+                                    누적 회수율 (원금 대비) <span id="sort-icon-s-recoveryRate" class="text-slate-500 ml-1"><i class="fa-solid fa-sort"></i></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-summary-table" class="divide-y divide-slate-800/60 font-medium">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= SECTION 3: DATA MANAGEMENT & RAW INPUT ================= -->
+        <div id="view-management" class="hidden space-y-6">
+            
+            <!-- Input Form Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                    <h2 class="text-base font-bold text-white flex items-center" id="form-title">
+                        <i class="fa-solid fa-plus-circle text-blue-500 mr-2"></i>신규 배당/주식 입력 (누적 관리)
+                    </h2>
+                    <button id="cancel-edit-btn" onclick="resetForm()" class="hidden text-xs text-slate-400 hover:text-white underline">
+                        수정 취소
+                    </button>
+                </div>
+
+                <form id="dividend-form" onsubmit="handleFormSubmit(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <input type="hidden" id="edit-index" value="-1">
+                    
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">배당 입금일</label>
+                        <input type="date" id="input-date" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">주식명</label>
+                        <input type="text" id="input-stock" placeholder="예: SCHD, JEPQ" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">배당금 (원)</label>
+                        <input type="number" id="input-dividend" placeholder="0" min="0" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">배당 적용 주식수</label>
+                        <input type="number" id="input-app-shares" placeholder="0" min="0" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">누적 보유 주식수 (입금 시점)</label>
+                        <input type="number" id="input-held-shares" placeholder="0" min="0" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">누적 투자 원금 (원)</label>
+                        <input type="number" id="input-principal" placeholder="0" min="0" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="sm:col-span-2 lg:col-span-3 flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="resetForm()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition">
+                            초기화
+                        </button>
+                        <button type="submit" id="submit-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-blue-600/30 transition">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i>저장하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Raw Data Table -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center">
+                            <i class="fa-solid fa-list-check text-emerald-400 mr-2"></i>전체 데이터 입출금 원장
+                        </h2>
+                        <p class="text-xs text-slate-400">등록된 전체 배당 입금 데이터를 조회하고 수정/삭제할 수 있습니다.</p>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="search-input" onkeyup="filterRawData()" placeholder="종목명/날짜 검색..." class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-800/80 text-slate-300 uppercase font-semibold border-b border-slate-700">
+                            <tr>
+                                <th class="py-3 px-3 cursor-pointer" onclick="sortTable(0)">배당 입금일 <i class="fa-solid fa-sort text-slate-500 ml-1"></i></th>
+                                <th class="py-3 px-3 cursor-pointer" onclick="sortTable(1)">주식명 <i class="fa-solid fa-sort text-slate-500 ml-1"></i></th>
+                                <th class="py-3 px-3 text-right">배당금(원)</th>
+                                <th class="py-3 px-3 text-right">적용 주식수</th>
+                                <th class="py-3 px-3 text-right">누적 보유 주식수</th>
+                                <th class="py-3 px-3 text-right">누적 투자 원금(원)</th>
+                                <th class="py-3 px-3 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="raw-data-table" class="divide-y divide-slate-800/60 font-medium">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Global Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-blue-600 text-white px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 translate-y-5 pointer-events-none z-50 text-xs font-semibold flex items-center space-x-2">
+        <i class="fa-solid fa-circle-check text-base"></i>
+        <span id="toast-message">메시지 내용</span>
+    </div>
+
+    <!-- Password Prompt Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                    <i class="fa-solid fa-shield-halved text-amber-400 mr-2"></i>관리자 인증 필요
+                </h3>
+                <button onclick="closePasswordModal()" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+            <p class="text-xs text-slate-300">데이터 입력, 수정 및 삭제 권한을 얻으려면 비밀번호를 입력해주세요.</p>
+            <div>
+                <input type="password" id="modal-password-input" placeholder="비밀번호 입력..." onkeydown="if(event.key==='Enter') confirmAdminAuth()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400">
+                <p id="modal-error-msg" class="text-[11px] text-rose-400 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>비밀번호가 일치하지 않습니다.</p>
+            </div>
+            <div class="flex justify-between items-center pt-2">
+                <span class="text-[10px] text-slate-500">초기 비밀번호: 1234</span>
+                <div class="space-x-2">
+                    <button onclick="closePasswordModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">취소</button>
+                    <button onclick="confirmAdminAuth()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold shadow-lg shadow-amber-500/20">인증하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Initial Dataset provided by User
+        const initialData = [
+            { date: "2026-01-06", stock: "JEPQ", dividend: 708, appShares: 3, heldShares: 3, principal: 254389 },
+            { date: "2026-01-19", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 139, appShares: 1, heldShares: 5, principal: 53375 },
+            { date: "2026-01-19", stock: "KODEX 미국배당커버드콜액티브", dividend: 98, appShares: 1, heldShares: 2, principal: 25285 },
+            { date: "2026-01-31", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-02-05", stock: "JEPQ", dividend: 1726, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-02-20", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 670, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-02-20", stock: "KODEX 미국배당커버드콜액티브", dividend: 198, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-02-28", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-03-04", stock: "JEPQ", dividend: 2533, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-03-10", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 1, principal: 40656 },
+            { date: "2026-03-17", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 670, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-03-17", stock: "KODEX 미국배당커버드콜액티브", dividend: 198, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-03-31", stock: "SCHD", dividend: 11017, appShares: 33, heldShares: 33, principal: 1323349 },
+            { date: "2026-04-06", stock: "JEPQ", dividend: 2864, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-04-09", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 1, principal: 40656 },
+            { date: "2026-04-17", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 665, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-04-17", stock: "KODEX 미국배당커버드콜액티브", dividend: 198, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-04-30", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-05-05", stock: "JEPQ", dividend: 2984, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-05-10", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 1, principal: 40656 },
+            { date: "2026-05-19", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 710, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-05-19", stock: "KODEX 미국배당커버드콜액티브", dividend: 200, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-05-31", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-06-03", stock: "JEPQ", dividend: 2901, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-06-09", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 4, principal: 161927 },
+            { date: "2026-06-17", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 1150, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-06-17", stock: "KODEX 미국배당커버드콜액티브", dividend: 202, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-06-17", stock: "KODEX 한국부동산리츠인프라", dividend: 116, appShares: 4, heldShares: 4, principal: 17830 },
+            { date: "2026-06-30", stock: "SCHD", dividend: 11037, appShares: 33, heldShares: 33, principal: 1323349 },
+            { date: "2026-07-02", stock: "TIGER 리츠부동산인프라", dividend: 66, appShares: 2, heldShares: 3, principal: 12020 },
+            { date: "2026-07-06", stock: "JEPQ", dividend: 3341, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-07-10", stock: "비치 프라퍼티스", dividend: 571, appShares: 1, heldShares: 11, principal: 475331 },
+            { date: "2026-07-20", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 1120, appShares: 5, heldShares: 5, principal: 53375 },
+            { date: "2026-07-20", stock: "KODEX 미국배당커버드콜액티브", dividend: 206, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-07-20", stock: "KODEX 한국부동산리츠인프라", dividend: 116, appShares: 4, heldShares: 4, principal: 17830 },
+            { date: "2026-07-29", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-08-04", stock: "TIGER 리츠부동산인프라", dividend: 66, appShares: 2, heldShares: 3, principal: 12020 },
+            { date: "2026-08-06", stock: "JEPQ", dividend: 3419, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-08-19", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 1045, appShares: 5, heldShares: 9, principal: 93930 },
+            { date: "2026-08-19", stock: "KODEX 미국배당커버드콜액티브", dividend: 204, appShares: 2, heldShares: 2, principal: 25285 },
+            { date: "2026-08-19", stock: "KODEX 한국부동산리츠인프라", dividend: 116, appShares: 4, heldShares: 4, principal: 17830 },
+            { date: "2026-08-09", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 20, principal: 803963 },
+            { date: "2026-08-29", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 33, principal: 1323349 },
+            { date: "2026-09-02", stock: "TIGER 리츠부동산인프라", dividend: 99, appShares: 3, heldShares: 3, principal: 12020 },
+            { date: "2026-09-04", stock: "JEPQ", dividend: 3154, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-09-09", stock: "비치 프라퍼티스", dividend: 0, appShares: 0, heldShares: 37, principal: 1343150 },
+            { date: "2026-09-17", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 2112, appShares: 11, heldShares: 15, principal: 151265 },
+            { date: "2026-09-17", stock: "KODEX 미국배당커버드콜액티브", dividend: 192, appShares: 2, heldShares: 4, principal: 49730 },
+            { date: "2026-09-17", stock: "KODEX 한국부동산리츠인프라", dividend: 240, appShares: 4, heldShares: 5, principal: 22040 },
+            { date: "2026-09-29", stock: "SCHD", dividend: 10281, appShares: 33, heldShares: 34, principal: 1368446 },
+            { date: "2026-10-02", stock: "TIGER 리츠부동산인프라", dividend: 99, appShares: 3, heldShares: 4, principal: 15920 },
+            { date: "2026-10-05", stock: "JEPQ", dividend: 2624, appShares: 4, heldShares: 4, principal: 336730 },
+            { date: "2026-10-09", stock: "비치 프라퍼티스", dividend: 16231, appShares: 31, heldShares: 49, principal: 1714732 },
+            { date: "2026-10-19", stock: "ACE 미국500데일리타겟커버드콜(합성)", dividend: 3056, appShares: 16, heldShares: 37, principal: 354460 },
+            { date: "2026-10-19", stock: "KODEX 미국배당커버드콜액티브", dividend: 376, appShares: 4, heldShares: 9, principal: 110220 },
+            { date: "2026-10-19", stock: "KODEX 한국부동산리츠인프라", dividend: 360, appShares: 6, heldShares: 13, principal: 54760 },
+            { date: "2026-10-19", stock: "RISE 미국배당100데일리고정커버드콜", dividend: 212, appShares: 2, heldShares: 3, principal: 25455 },
+            { date: "2026-10-29", stock: "SCHD", dividend: 0, appShares: 0, heldShares: 35, principal: 1412950 }
+        ];
+
+        // Core App State
+        let dividendData = [];
+        let chartInstances = {};
+        let selectedYear = "ALL";
+        let monthlyChartMode = "total"; // 'total' or 'stacked'
+
+        // Admin Security State
+        let isAdminAuthenticated = false;
+        let adminPassword = localStorage.getItem('dividend_admin_password') || '1234';
+        let pendingAdminAction = null;
+
+        // Sorting State for Analytics Tables
+        let monthlyTableSort = { field: 'month', asc: true };
+        let stockTableSort = { field: 'stock', asc: true };
+
+        // Color Palette for Stock Items (Defined at top to prevent ReferenceError)
+        const stockColors = {
+            "JEPQ": "#3b82f6",
+            "ACE 미국500데일리타겟커버드콜(합성)": "#10b981",
+            "KODEX 미국배당커버드콜액티브": "#f59e0b",
+            "SCHD": "#ec4899",
+            "비치 프라퍼티스": "#8b5cf6",
+            "KODEX 한국부동산리츠인프라": "#06b6d4",
+            "TIGER 리츠부동산인프라": "#f97316",
+            "RISE 미국배당100데일리고정커버드콜": "#64748b"
+        };
+        const defaultPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#64748b', '#84cc16'];
+
+        function getStockColor(stock, idx = 0) {
+            return stockColors[stock] || defaultPalette[idx % defaultPalette.length];
+        }
+
+        // Register DataLabels plugin globally
+        if (typeof ChartDataLabels !== 'undefined') {
+            Chart.register(ChartDataLabels);
+        }
+
+        // Format Currency & Numbers
+        const formatKRW = (num) => new Intl.NumberFormat('ko-KR').format(Math.round(num)) + ' 원';
+        const formatNum = (num) => new Intl.NumberFormat('ko-KR').format(num);
+
+        // Toast Notification
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('opacity-0', 'translate-y-5', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-5', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // Sort Data Chronologically
+        function sortDataByDate() {
+            dividendData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+
+        // Save & LocalStorage Sync
+        function saveData() {
+            localStorage.setItem('dividend_app_data', JSON.stringify(dividendData));
+        }
+
+        // Admin Security Methods
+        function checkAdminAccess(actionCallback) {
+            if (isAdminAuthenticated) {
+                if (actionCallback) actionCallback();
+                return true;
+            } else {
+                pendingAdminAction = actionCallback;
+                openPasswordModal();
+                return false;
+            }
+        }
+
+        function openPasswordModal() {
+            const modal = document.getElementById('password-modal');
+            const input = document.getElementById('modal-password-input');
+            const errorMsg = document.getElementById('modal-error-msg');
+            input.value = '';
+            errorMsg.classList.add('hidden');
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.add('hidden');
+            pendingAdminAction = null;
+        }
+
+        function confirmAdminAuth() {
+            const input = document.getElementById('modal-password-input').value;
+            const errorMsg = document.getElementById('modal-error-msg');
+            if (input === adminPassword) {
+                isAdminAuthenticated = true;
+                updateAdminAuthUI();
+                closePasswordModal();
+                showToast("관리자 인증이 완료되었습니다.");
+                if (pendingAdminAction) {
+                    const callback = pendingAdminAction;
+                    pendingAdminAction = null;
+                    callback();
+                }
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function toggleAdminAuth() {
+            if (isAdminAuthenticated) {
+                if (confirm("로그아웃 하시겠습니까? (수정 권한이 해제됩니다)")) {
+                    isAdminAuthenticated = false;
+                    updateAdminAuthUI();
+                    showToast("관리자 모드가 해제되었습니다.");
+                }
+            } else {
+                openPasswordModal();
+            }
+        }
+
+        function updateAdminAuthUI() {
+            const btnText = document.getElementById('admin-auth-text');
+            const btnIcon = document.getElementById('admin-auth-icon');
+            const btn = document.getElementById('admin-auth-btn');
+
+            if (isAdminAuthenticated) {
+                btnText.innerText = "관리자 인증 완료";
+                btnIcon.className = "fa-solid fa-lock-open mr-1";
+                btn.className = "px-3 py-2 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-400 rounded-lg text-xs font-semibold border border-emerald-700/50 transition";
+            } else {
+                btnText.innerText = "관리자 로그인";
+                btnIcon.className = "fa-solid fa-lock mr-1";
+                btn.className = "px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 rounded-lg text-xs font-semibold border border-slate-700 transition";
+            }
+        }
+
+        // Reset to Default Data
+        function resetToDefaultData() {
+            checkAdminAccess(() => {
+                dividendData = JSON.parse(JSON.stringify(initialData));
+                sortDataByDate();
+                saveData();
+                populateYearFilterSelector();
+                refreshAll();
+                showToast("초기 데이터셋으로 복원되었습니다.");
+            });
+        }
+
+        // Populate Year Selector Options
+        function populateYearFilterSelector() {
+            const yearSelector = document.getElementById('year-filter-selector');
+            if (!yearSelector) return;
+
+            const years = Array.from(new Set(dividendData.map(item => item.date.substring(0, 4)))).sort();
+            const currentSelected = yearSelector.value || "ALL";
+
+            yearSelector.innerHTML = '<option value="ALL">전체 기간</option>';
+            years.forEach(yr => {
+                const opt = document.createElement('option');
+                opt.value = yr;
+                opt.textContent = `${yr}년`;
+                yearSelector.appendChild(opt);
+            });
+
+            if (years.includes(currentSelected) || currentSelected === "ALL") {
+                yearSelector.value = currentSelected;
+            } else {
+                yearSelector.value = "ALL";
+            }
+            selectedYear = yearSelector.value;
+        }
+
+        function onYearFilterChange() {
+            const yearSelector = document.getElementById('year-filter-selector');
+            selectedYear = yearSelector.value;
+            refreshAll();
+        }
+
+        // Switch Tabs
+        function switchTab(tabId) {
+            ['dashboard', 'analytics', 'management'].forEach(id => {
+                const view = document.getElementById(`view-${id}`);
+                const tabBtn = document.getElementById(`tab-${id}`);
+                const mobTabBtn = document.getElementById(`mob-tab-${id}`);
+
+                if (id === tabId) {
+                    view.classList.remove('hidden');
+                    if (tabBtn) {
+                        tabBtn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                        tabBtn.classList.remove('text-slate-400');
+                    }
+                    if (mobTabBtn) {
+                        mobTabBtn.classList.add('text-blue-400', 'font-semibold');
+                        mobTabBtn.classList.remove('text-slate-400');
+                    }
+                } else {
+                    view.classList.add('hidden');
+                    if (tabBtn) {
+                        tabBtn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                        tabBtn.classList.add('text-slate-400');
+                    }
+                    if (mobTabBtn) {
+                        mobTabBtn.classList.remove('text-blue-400', 'font-semibold');
+                        mobTabBtn.classList.add('text-slate-400');
+                    }
+                }
+            });
+
+            if (tabId === 'dashboard') {
+                setTimeout(() => {
+                    renderMonthlyDividendChart();
+                    renderYieldTrendChart();
+                    renderComboChart();
+                    renderDistributionChart();
+                }, 50);
+            }
+        }
+
+        // Refresh All Views & Charts
+        function refreshAll() {
+            updateKPIs();
+            renderMonthlyDividendChart();
+            renderYieldTrendChart();
+            populateStockComboSelector();
+            renderComboChart();
+            renderDistributionChart();
+            renderAnalyticsMonthlyTable();
+            renderAnalyticsStockTable();
+            renderRawDataTable();
+        }
+
+        // Get Filtered Data based on selected year
+        function getFilteredData() {
+            if (selectedYear === "ALL") return dividendData;
+            return dividendData.filter(d => d.date.startsWith(selectedYear));
+        }
+
+        // Helper: Get Unique Months
+        function getUniqueMonths(dataArr) {
+            return Array.from(new Set(dataArr.map(d => d.date.substring(0, 7)))).sort();
+        }
+
+        // Helper: Monthly Principal Calculation
+        function getMonthlyPrincipalMap(dataArr) {
+            const map = {};
+            const months = getUniqueMonths(dataArr);
+            
+            months.forEach(m => {
+                const itemsInMonth = dataArr.filter(d => d.date.startsWith(m));
+                const stockLatestMap = {};
+
+                // Get cumulative latest principal up to this month
+                const dataUpToMonth = dataArr.filter(d => d.date.substring(0, 7) <= m);
+                dataUpToMonth.forEach(d => {
+                    stockLatestMap[d.stock] = d.principal;
+                });
+
+                let total = 0;
+                Object.values(stockLatestMap).forEach(val => total += Number(val));
+                map[m] = total;
+            });
+            return map;
+        }
+
+        // UPDATE KPI CARDS
+        function updateKPIs() {
+            const data = getFilteredData();
+            if (data.length === 0) return;
+
+            const months = getUniqueMonths(data);
+            const latestMonth = months[months.length - 1];
+
+            // 1. Total Investment Principal (Sum of latest principal for each stock in the selected scope)
+            const stockLatestMap = {};
+            data.forEach(d => {
+                stockLatestMap[d.stock] = d.principal;
+            });
+            const totalPrincipal = Object.values(stockLatestMap).reduce((acc, cur) => acc + Number(cur), 0);
+
+            // 2. Total Dividend Received
+            const totalDividend = data.reduce((acc, cur) => acc + Number(cur.dividend), 0);
+            const dividendCount = data.filter(d => Number(d.dividend) > 0).length;
+
+            // 3. Monthly Average Dividend
+            const monthlyAvgDividend = months.length > 0 ? totalDividend / months.length : 0;
+
+            // 4. Latest Month Dividend
+            const latestMonthItems = data.filter(d => d.date.startsWith(latestMonth));
+            const latestMonthDividend = latestMonthItems.reduce((acc, cur) => acc + Number(cur.dividend), 0);
+            
+            const monthlyPrincipalMap = getMonthlyPrincipalMap(dividendData);
+            const latestMonthPrincipal = monthlyPrincipalMap[latestMonth] || totalPrincipal;
+            const latestMonthYield = latestMonthPrincipal > 0 ? (latestMonthDividend / latestMonthPrincipal) * 100 : 0;
+
+            // 5 & 6. Rolling 12-Month Dividend Yield Calculation
+            let rolling12mDividend = 0;
+            if (latestMonth) {
+                const [lYear, lMon] = latestMonth.split('-').map(Number);
+                const endDateStr = latestMonth;
+                const startDateObj = new Date(lYear - 1, lMon, 1); // 12 months prior
+                const startDateStr = startDateObj.toISOString().substring(0, 7);
+
+                rolling12mDividend = dividendData
+                    .filter(d => d.date.substring(0, 7) >= startDateStr && d.date.substring(0, 7) <= endDateStr)
+                    .reduce((acc, cur) => acc + Number(cur.dividend), 0);
+            } else {
+                rolling12mDividend = totalDividend;
+            }
+
+            const annualYield = totalPrincipal > 0 ? (rolling12mDividend / totalPrincipal) * 100 : 0;
+            const avgMonthlyYield = annualYield / 12;
+
+            // Render to DOM
+            document.getElementById('kpi-total-principal').innerText = formatKRW(totalPrincipal);
+            document.getElementById('kpi-total-dividend').innerText = formatKRW(totalDividend);
+            document.getElementById('kpi-dividend-count').innerText = `총 ${dividendCount}건의 입금 내역`;
+            document.getElementById('kpi-avg-monthly-dividend').innerText = formatKRW(monthlyAvgDividend);
+            
+            document.getElementById('kpi-latest-month-title').innerText = `${latestMonth} 배당금`;
+            document.getElementById('kpi-latest-month-dividend').innerText = formatKRW(latestMonthDividend);
+            document.getElementById('kpi-latest-month-yield').innerText = `당월 수익률: ${latestMonthYield.toFixed(2)}%`;
+
+            document.getElementById('kpi-avg-monthly-yield').innerText = `${avgMonthlyYield.toFixed(2)} %`;
+            document.getElementById('kpi-annual-yield').innerText = `${annualYield.toFixed(2)} %`;
+        }
+
+        // Toggle Monthly Chart Mode (Total vs Stacked)
+        function setMonthlyChartMode(mode) {
+            monthlyChartMode = mode;
+            const btnTotal = document.getElementById('btn-chart-mode-total');
+            const btnStacked = document.getElementById('btn-chart-mode-stacked');
+
+            if (mode === 'total') {
+                btnTotal.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btnTotal.classList.remove('text-slate-400');
+                btnStacked.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                btnStacked.classList.add('text-slate-400');
+            } else {
+                btnStacked.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btnStacked.classList.remove('text-slate-400');
+                btnTotal.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                btnTotal.classList.add('text-slate-400');
+            }
+            renderMonthlyDividendChart();
+        }
+
+        // 1. CHART: Monthly Dividend Trend
+        function renderMonthlyDividendChart() {
+            const ctx = document.getElementById('chartMonthlyDividend')?.getContext('2d');
+            if (!ctx) return;
+
+            const data = getFilteredData();
+            const months = getUniqueMonths(data);
+
+            if (chartInstances.monthlyDividend) {
+                chartInstances.monthlyDividend.destroy();
+            }
+
+            if (monthlyChartMode === 'total') {
+                const monthlyTotals = months.map(m => {
+                    return data.filter(d => d.date.startsWith(m)).reduce((acc, cur) => acc + Number(cur.dividend), 0);
+                });
+
+                chartInstances.monthlyDividend = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: '월별 배당금 (원)',
+                            data: monthlyTotals,
+                            backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => ` 배당금: ${formatKRW(ctx.raw)}`
+                                }
+                            },
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'top',
+                                color: '#93c5fd',
+                                font: { weight: 'bold', size: 10 },
+                                formatter: (val) => val > 0 ? formatNum(val) : ''
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                            y: { 
+                                grid: { color: '#334155' }, 
+                                ticks: { color: '#94a3b8', callback: (v) => formatNum(v) },
+                                grace: '12%'
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Stacked Mode
+                const stocks = Array.from(new Set(data.map(d => d.stock)));
+                const datasets = stocks.map((stk, idx) => {
+                    const stockData = months.map(m => {
+                        return data.filter(d => d.date.startsWith(m) && d.stock === stk)
+                                   .reduce((acc, cur) => acc + Number(cur.dividend), 0);
+                    });
+
+                    return {
+                        label: stk,
+                        data: stockData,
+                        backgroundColor: getStockColor(stk, idx),
+                        borderWidth: 0,
+                    };
+                });
+
+                chartInstances.monthlyDividend = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: months, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true, 
+                                position: 'top',
+                                labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 12 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => ` ${ctx.dataset.label}: ${formatKRW(ctx.raw)}`
+                                }
+                            },
+                            datalabels: {
+                                display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                                color: '#ffffff',
+                                font: { weight: 'bold', size: 9 },
+                                formatter: (val) => val >= 1000 ? formatNum(val) : val
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                            y: { stacked: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8', callback: (v) => formatNum(v) } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 2. CHART: Monthly Yield (%) & Annualized Rolling Yield (%)
+        function renderYieldTrendChart() {
+            const ctx = document.getElementById('chartYieldTrend')?.getContext('2d');
+            if (!ctx) return;
+
+            const data = getFilteredData();
+            const months = getUniqueMonths(data);
+            const monthlyPrincipalMap = getMonthlyPrincipalMap(dividendData);
+
+            const monthlyYields = [];
+            const annualizedYields = [];
+
+            months.forEach(m => {
+                const totalDivMonth = data.filter(d => d.date.startsWith(m)).reduce((a, c) => a + Number(c.dividend), 0);
+                const principal = monthlyPrincipalMap[m] || 1;
+
+                // 1. Monthly Yield %
+                const mYield = (totalDivMonth / principal) * 100;
+                monthlyYields.push(Number(mYield.toFixed(2)));
+
+                // 2. Rolling 12-Month Annualized Yield %
+                const [yr, mon] = m.split('-').map(Number);
+                const startDateObj = new Date(yr - 1, mon, 1);
+                const startDateStr = startDateObj.toISOString().substring(0, 7);
+
+                const rolling12mDiv = dividendData
+                    .filter(d => d.date.substring(0, 7) >= startDateStr && d.date.substring(0, 7) <= m)
+                    .reduce((acc, cur) => acc + Number(cur.dividend), 0);
+
+                const aYield = (rolling12mDiv / principal) * 100;
+                annualizedYields.push(Number(aYield.toFixed(2)));
+            });
+
+            if (chartInstances.yieldTrend) {
+                chartInstances.yieldTrend.destroy();
+            }
+
+            chartInstances.yieldTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: '월 배당 수익률 (%)',
+                            data: monthlyYields,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#10b981'
+                        },
+                        {
+                            label: '연 환산 수익률 (롤링 12m %)',
+                            data: annualizedYields,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [4, 4],
+                            tension: 0.3,
+                            fill: false,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f59e0b'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 12 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw}%`
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            font: { size: 9, weight: 'bold' },
+                            formatter: (val) => `${val}%`
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { 
+                            grid: { color: '#334155' }, 
+                            ticks: { color: '#94a3b8', callback: (v) => `${v}%` },
+                            grace: '15%'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Populate Stock Combo Selector Options
+        function populateStockComboSelector() {
+            const selector = document.getElementById('stockSelectorCombo');
+            if (!selector) return;
+
+            const stocks = Array.from(new Set(dividendData.map(d => d.stock)));
+            const currentSelected = selector.value;
+
+            selector.innerHTML = '<option value="ALL">전체 (합계)</option>';
+            stocks.forEach(stk => {
+                const opt = document.createElement('option');
+                opt.value = stk;
+                opt.textContent = stk;
+                selector.appendChild(opt);
+            });
+
+            if (stocks.includes(currentSelected) || currentSelected === 'ALL') {
+                selector.value = currentSelected || 'ALL';
+            } else {
+                selector.value = 'ALL';
+            }
+        }
+
+        // 4. CHART: Stock Combo Chart (Held Shares vs Dividend)
+        function renderComboChart() {
+            const ctx = document.getElementById('chartStockCombo')?.getContext('2d');
+            const selector = document.getElementById('stockSelectorCombo');
+            if (!ctx || !selector || !selector.value) return;
+
+            const selectedStock = selector.value;
+            const data = getFilteredData();
+            const months = getUniqueMonths(data);
+
+            const dividends = [];
+            const shares = [];
+
+            months.forEach(m => {
+                if (selectedStock === 'ALL') {
+                    // Total dividends in month
+                    const divSum = data.filter(d => d.date.startsWith(m)).reduce((a, c) => a + Number(c.dividend), 0);
+                    dividends.push(divSum);
+
+                    // Total cumulative shares of all stocks up to this month
+                    const stockShareMap = {};
+                    const pastItems = dividendData.filter(d => d.date.substring(0, 7) <= m);
+                    pastItems.forEach(d => {
+                        stockShareMap[d.stock] = d.heldShares;
+                    });
+                    const totalShares = Object.values(stockShareMap).reduce((a, c) => a + Number(c), 0);
+                    shares.push(totalShares);
+                } else {
+                    const items = data.filter(d => d.date.startsWith(m) && d.stock === selectedStock);
+                    const divSum = items.reduce((a, c) => a + Number(c.dividend), 0);
+                    dividends.push(divSum);
+
+                    // Cumulative held shares up to month
+                    const pastItems = dividendData.filter(d => d.date.substring(0, 7) <= m && d.stock === selectedStock);
+                    const latestShare = pastItems.length > 0 ? pastItems[pastItems.length - 1].heldShares : 0;
+                    shares.push(latestShare);
+                }
+            });
+
+            if (chartInstances.stockCombo) {
+                chartInstances.stockCombo.destroy();
+            }
+
+            chartInstances.stockCombo = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: selectedStock === 'ALL' ? '전체 누적 보유 주식수 (주)' : '누적 보유 주식수 (주)',
+                            data: shares,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                            borderWidth: 2,
+                            tension: 0.2,
+                            yAxisID: 'yShares',
+                            pointRadius: 4,
+                            pointBackgroundColor: '#a855f7',
+                            datalabels: {
+                                anchor: 'start',
+                                align: 'top',
+                                color: '#d8b4fe',
+                                font: { weight: 'bold', size: 9 },
+                                formatter: (v) => v > 0 ? `${v}주` : ''
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            label: selectedStock === 'ALL' ? '전체 수령 배당금 (원)' : '수령 배당금 (원)',
+                            data: dividends,
+                            backgroundColor: 'rgba(56, 189, 248, 0.75)',
+                            borderColor: '#38bdf8',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'yDividend',
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'top',
+                                color: '#7dd3fc',
+                                font: { weight: 'bold', size: 9 },
+                                formatter: (v) => v > 0 ? formatNum(v) : ''
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#cbd5e1', font: { size: 10 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ctx.dataset.type === 'line' 
+                                    ? ` ${ctx.dataset.label}: ${formatNum(ctx.raw)} 주` 
+                                    : ` ${ctx.dataset.label}: ${formatKRW(ctx.raw)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        yDividend: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: '#334155' },
+                            ticks: { color: '#38bdf8', callback: (v) => formatNum(v) },
+                            title: { display: true, text: '배당금 (원)', color: '#38bdf8', font: { size: 10 } },
+                            grace: '15%'
+                        },
+                        yShares: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#c084fc', callback: (v) => `${v}주` },
+                            title: { display: true, text: '누적 보유 주식수 (주)', color: '#c084fc', font: { size: 10 } },
+                            grace: '15%'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 5. CHART: Stock Principal Distribution Doughnut
+        function renderDistributionChart() {
+            const ctx = document.getElementById('chartStockDistribution')?.getContext('2d');
+            if (!ctx) return;
+
+            const data = getFilteredData();
+            const stockLatestMap = {};
+            data.forEach(d => {
+                stockLatestMap[d.stock] = d.principal;
+            });
+
+            const labels = Object.keys(stockLatestMap);
+            const values = Object.values(stockLatestMap);
+            const total = values.reduce((a, b) => a + Number(b), 0);
+
+            const colors = labels.map((stk, idx) => getStockColor(stk, idx));
+
+            if (chartInstances.distribution) {
+                chartInstances.distribution.destroy();
+            }
+
+            chartInstances.distribution = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#0f172a'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'right',
+                            labels: { color: '#cbd5e1', font: { size: 9 }, boxWidth: 10 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const val = ctx.raw;
+                                    const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                    return ` ${ctx.label}: ${formatKRW(val)} (${pct}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 9 },
+                            formatter: (val) => {
+                                const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
+                                return pct >= 5 ? `${pct}%` : '';
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // Analytics Table 1 Sorting Logic
+        function sortAnalyticsMonthlyTable(field) {
+            if (monthlyTableSort.field === field) {
+                monthlyTableSort.asc = !monthlyTableSort.asc;
+            } else {
+                monthlyTableSort.field = field;
+                monthlyTableSort.asc = true;
+            }
+            renderAnalyticsMonthlyTable();
+        }
+
+        // Render Analytics Monthly Summary Table
+        function renderAnalyticsMonthlyTable() {
+            const tbody = document.getElementById('monthly-summary-table');
+            if (!tbody) return;
+
+            const data = getFilteredData();
+            const months = getUniqueMonths(data);
+            const monthlyPrincipalMap = getMonthlyPrincipalMap(dividendData);
+
+            let rows = months.map(m => {
+                const itemsInMonth = data.filter(d => d.date.startsWith(m));
+                const totalDiv = itemsInMonth.reduce((a, c) => a + Number(c.dividend), 0);
+                const principal = monthlyPrincipalMap[m] || 0;
+                const mYield = principal > 0 ? (totalDiv / principal) * 100 : 0;
+
+                // Rolling 12m yield
+                const [yr, mon] = m.split('-').map(Number);
+                const startDateObj = new Date(yr - 1, mon, 1);
+                const startDateStr = startDateObj.toISOString().substring(0, 7);
+
+                const rolling12mDiv = dividendData
+                    .filter(d => d.date.substring(0, 7) >= startDateStr && d.date.substring(0, 7) <= m)
+                    .reduce((acc, cur) => acc + Number(cur.dividend), 0);
+
+                const aYield = principal > 0 ? (rolling12mDiv / principal) * 100 : 0;
+
+                return {
+                    month: m,
+                    totalPrincipal: principal,
+                    totalDividend: totalDiv,
+                    monthlyYield: mYield,
+                    annualizedYield: aYield,
+                    stockCount: itemsInMonth.filter(d => Number(d.dividend) > 0).length
+                };
+            });
+
+            // Apply Sorting
+            const { field, asc } = monthlyTableSort;
+            rows.sort((a, b) => {
+                let vA = a[field];
+                let vB = b[field];
+                if (typeof vA === 'string') {
+                    return asc ? vA.localeCompare(vB) : vB.localeCompare(vA);
+                }
+                return asc ? vA - vB : vB - vA;
+            });
+
+            // Update Sort Icons
+            ['month', 'totalPrincipal', 'totalDividend', 'monthlyYield', 'annualizedYield', 'stockCount'].forEach(f => {
+                const icon = document.getElementById(`sort-icon-m-${f}`);
+                if (icon) {
+                    if (f === field) {
+                        icon.innerHTML = asc ? '<i class="fa-solid fa-arrow-up text-blue-400"></i>' : '<i class="fa-solid fa-arrow-down text-blue-400"></i>';
+                    } else {
+                        icon.innerHTML = '<i class="fa-solid fa-sort"></i>';
+                    }
+                }
+            });
+
+            tbody.innerHTML = '';
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition border-b border-slate-800/40';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 font-semibold text-blue-300">${r.month}</td>
+                    <td class="py-2.5 px-4 text-right">${formatKRW(r.totalPrincipal)}</td>
+                    <td class="py-2.5 px-4 text-right font-semibold text-emerald-400">${formatKRW(r.totalDividend)}</td>
+                    <td class="py-2.5 px-4 text-right text-indigo-300">${r.monthlyYield.toFixed(2)}%</td>
+                    <td class="py-2.5 px-4 text-right text-amber-300 font-semibold">${r.annualizedYield.toFixed(2)}%</td>
+                    <td class="py-2.5 px-4 text-center text-slate-400">${r.stockCount}개 종목</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Analytics Table 2 Sorting Logic
+        function sortAnalyticsStockTable(field) {
+            if (stockTableSort.field === field) {
+                stockTableSort.asc = !stockTableSort.asc;
+            } else {
+                stockTableSort.field = field;
+                stockTableSort.asc = true;
+            }
+            renderAnalyticsStockTable();
+        }
+
+        // Render Analytics Stock Summary Table
+        function renderAnalyticsStockTable() {
+            const tbody = document.getElementById('stock-summary-table');
+            if (!tbody) return;
+
+            const data = getFilteredData();
+            const stocks = Array.from(new Set(data.map(d => d.stock)));
+
+            const stockLatestMap = {};
+            data.forEach(d => stockLatestMap[d.stock] = d.principal);
+            const overallPrincipal = Object.values(stockLatestMap).reduce((a, b) => a + Number(b), 0);
+
+            let rows = stocks.map(stk => {
+                const stockItems = data.filter(d => d.stock === stk);
+                const latestItem = stockItems[stockItems.length - 1];
+                const heldShares = latestItem ? latestItem.heldShares : 0;
+                const principal = stockLatestMap[stk] || 0;
+                const weight = overallPrincipal > 0 ? (principal / overallPrincipal) * 100 : 0;
+
+                const totalDiv = stockItems.reduce((a, c) => a + Number(c.dividend), 0);
+                const recoveryRate = principal > 0 ? (totalDiv / principal) * 100 : 0;
+
+                return {
+                    stock: stk,
+                    heldShares: heldShares,
+                    principal: principal,
+                    weight: weight,
+                    totalDividend: totalDiv,
+                    recoveryRate: recoveryRate
+                };
+            });
+
+            // Apply Sorting
+            const { field, asc } = stockTableSort;
+            rows.sort((a, b) => {
+                let vA = a[field];
+                let vB = b[field];
+                if (typeof vA === 'string') {
+                    return asc ? vA.localeCompare(vB) : vB.localeCompare(vA);
+                }
+                return asc ? vA - vB : vB - vA;
+            });
+
+            // Update Sort Icons
+            ['stock', 'heldShares', 'principal', 'weight', 'totalDividend', 'recoveryRate'].forEach(f => {
+                const icon = document.getElementById(`sort-icon-s-${f}`);
+                if (icon) {
+                    if (f === field) {
+                        icon.innerHTML = asc ? '<i class="fa-solid fa-arrow-up text-cyan-400"></i>' : '<i class="fa-solid fa-arrow-down text-cyan-400"></i>';
+                    } else {
+                        icon.innerHTML = '<i class="fa-solid fa-sort"></i>';
+                    }
+                }
+            });
+
+            tbody.innerHTML = '';
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition border-b border-slate-800/40';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 font-semibold text-white flex items-center">
+                        <span class="w-2.5 h-2.5 rounded-full mr-2 inline-block" style="background-color: ${getStockColor(r.stock)}"></span>
+                        ${r.stock}
+                    </td>
+                    <td class="py-2.5 px-4 text-right font-semibold text-purple-300">${formatNum(r.heldShares)} 주</td>
+                    <td class="py-2.5 px-4 text-right">${formatKRW(r.principal)}</td>
+                    <td class="py-2.5 px-4 text-right text-slate-400">${r.weight.toFixed(1)}%</td>
+                    <td class="py-2.5 px-4 text-right font-semibold text-emerald-400">${formatKRW(r.totalDividend)}</td>
+                    <td class="py-2.5 px-4 text-right text-cyan-300">${r.recoveryRate.toFixed(2)}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Raw Data Table in Management View
+        function renderRawDataTable() {
+            const tbody = document.getElementById('raw-data-table');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            dividendData.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition border-b border-slate-800/40';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-slate-300">${item.date}</td>
+                    <td class="py-2.5 px-3 font-semibold text-white">${item.stock}</td>
+                    <td class="py-2.5 px-3 text-right font-semibold text-emerald-400">${formatKRW(item.dividend)}</td>
+                    <td class="py-2.5 px-3 text-right text-slate-400">${formatNum(item.appShares)}주</td>
+                    <td class="py-2.5 px-3 text-right text-purple-300 font-medium">${formatNum(item.heldShares)}주</td>
+                    <td class="py-2.5 px-3 text-right text-slate-300">${formatKRW(item.principal)}</td>
+                    <td class="py-2.5 px-3 text-center space-x-1">
+                        <button onclick="editItem(${index})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded transition text-xs">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deleteItem(${index})" class="px-2 py-1 bg-slate-800 hover:bg-rose-900/40 text-rose-400 rounded transition text-xs">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Handle Form Input & Submit
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            checkAdminAccess(() => {
+                const date = document.getElementById('input-date').value;
+                const stock = document.getElementById('input-stock').value.trim();
+                const dividend = Number(document.getElementById('input-dividend').value);
+                const appShares = Number(document.getElementById('input-app-shares').value);
+                const heldShares = Number(document.getElementById('input-held-shares').value);
+                const principal = Number(document.getElementById('input-principal').value);
+                const editIndex = Number(document.getElementById('edit-index').value);
+
+                const newItem = { date, stock, dividend, appShares, heldShares, principal };
+
+                if (editIndex >= 0) {
+                    dividendData[editIndex] = newItem;
+                    showToast("선택한 내역이 수정되었습니다.");
+                } else {
+                    dividendData.push(newItem);
+                    showToast("신규 배당 내역이 등록되었습니다.");
+                }
+
+                sortDataByDate();
+                saveData();
+                populateYearFilterSelector();
+                resetForm();
+                refreshAll();
+            });
+        }
+
+        // Edit Item
+        function editItem(index) {
+            checkAdminAccess(() => {
+                const item = dividendData[index];
+                document.getElementById('edit-index').value = index;
+                document.getElementById('input-date').value = item.date;
+                document.getElementById('input-stock').value = item.stock;
+                document.getElementById('input-dividend').value = item.dividend;
+                document.getElementById('input-app-shares').value = item.appShares;
+                document.getElementById('input-held-shares').value = item.heldShares;
+                document.getElementById('input-principal').value = item.principal;
+
+                document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-400 mr-2"></i>배당 내역 수정 (ID: #${index + 1})`;
+                document.getElementById('submit-btn').innerHTML = `<i class="fa-solid fa-check mr-1"></i>수정 반영`;
+                document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+
+        // Delete Item
+        function deleteItem(index) {
+            checkAdminAccess(() => {
+                if (confirm("해당 배당 내역을 삭제하시겠습니까?")) {
+                    dividendData.splice(index, 1);
+                    sortDataByDate();
+                    saveData();
+                    populateYearFilterSelector();
+                    refreshAll();
+                    showToast("내역이 삭제되었습니다.");
+                }
+            });
+        }
+
+        // Reset Form
+        function resetForm() {
+            document.getElementById('dividend-form').reset();
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-plus-circle text-blue-500 mr-2"></i>신규 배당/주식 입력 (누적 관리)`;
+            document.getElementById('submit-btn').innerHTML = `<i class="fa-solid fa-floppy-disk mr-1"></i>저장하기`;
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+        }
+
+        // Data Export (JSON)
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dividendData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `dividend_data_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("데이터 백업 파일이 다운로드되었습니다.");
+        }
+
+        // Raw Data Filter
+        function filterRawData() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const rows = document.querySelectorAll('#raw-data-table tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        }
+
+        // Initialize App on Window Load
+        window.onload = function() {
+            const localSaved = localStorage.getItem('dividend_app_data');
+            if (localSaved) {
+                try {
+                    dividendData = JSON.parse(localSaved);
+                } catch (e) {
+                    dividendData = JSON.parse(JSON.stringify(initialData));
+                }
+            } else {
+                dividendData = JSON.parse(JSON.stringify(initialData));
+            }
+            
+            sortDataByDate();
+            populateYearFilterSelector();
+            refreshAll();
+        };
+    </script>
+</body>
+</html>
